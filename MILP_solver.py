@@ -13,12 +13,22 @@ def dimensions(instance):
     return nb_tasks, nb_jobs, nb_machines, nb_operators
 
 
-dim = dimensions(Instance_tiny)
+nb_tasks, nb_jobs, nb_machines, nb_operators = dimensions(Instance_tiny)
 
+def w(instance):
+    w=[]
+    jobs = instance.jobs
+    for job in jobs:
+        w.append(job.weight)
+    return w
+
+w = w(Instance_tiny)
+
+alpha = Instance_tiny.alpha
+beta = Instance_tiny.beta
 
 def r_j(instance):
     r_j = []
-    nb_jobs = instance["parameters"]["size"]["nb_jobs"]
     for j in range(0, nb_jobs):
         r_j.append(instance["jobs"]["release_date"])
     return r_j
@@ -26,7 +36,6 @@ def r_j(instance):
 
 def p_i(instance):
     p_i = []
-    nb_tasks = instance["parameters"]["size"]["nb_tasks"]
     for i in range(0, nb_tasks):
         p_i.append(instance["tasks"]["processing_time"])
     return p_i
@@ -46,9 +55,6 @@ delta = delta(Instance_tiny)
 
 
 def M_iom(instance):
-    nb_tasks = instance["parameters"]["size"]["nb_tasks"]
-    nb_operators = instance["parameters"]["size"]["nb_operators"]
-    nb_machines = instance["parameters"]["size"]["nb_machines"]
     M_iom = [[[0 for m in range(0, nb_machines)] for o in range(0, nb_operators)] for i in range(0, nb_tasks)]
     for i in range(0, nb_tasks):
         for o in range(0, nb_operators):
@@ -60,14 +66,24 @@ def M_iom(instance):
 
 T = 30  # final time upper bound
 
-### Creation des variables ###
+### Creation des variables et contraintes###
+
+constraints = []
+
+X = [[[[] for m in range(nb_machines)] for o in range(nb_operators)] for i in range(nb_tasks)]
+
+for i in range(nb_tasks):
+    for o in range(nb_operators):
+        for m in range(nb_machines):
+            for t in range(T):
+                X[i][o][m].append(cp.Variable(boolean=True))
 
 C = cp.Variable(Instance_tiny.nb_tasks(), boolean=False)
 B = cp.Variable(Instance_tiny.nb_tasks(), boolean=False)
 p = []
 for i in range(Instance_tiny.nb_tasks()):
     p.append(Instance_tiny.tasks[i].processing_time)
-constr1 = (C == B + p)
+constraints.append(C == B + p)
 
 Bj = cp.Variable(Instance_tiny.nb_jobs(), boolean=False)
 Cj = cp.Variable(Instance_tiny.nb_jobs(), boolean=False)
@@ -77,16 +93,25 @@ Uj = cp.Variable(Instance_tiny.nb_jobs(), boolean=True)
 d = []
 for j in range(Instance_tiny.nb_jobs()):
     d.append(Instance_tiny.jobs[j].release_date)
-constrTj = (Tj >= Cj - d)
-constrTj2 = (Tj >= 0)
-constrUj = (Uj * 100 >= Tj)
+constraints.append(Tj >= Cj - d)
+constraints.append(Tj >= 0)
+constraints.append(Uj * 100 >= Tj)
 
-constr = []
 for j in range(Instance_tiny.nb_jobs()):
-    constrb = (Bj[j] == B[Instance_tiny.jobs[j].tasks_sequence[0] - 1])
-    constrb2 = (Bj[j] >= B[Instance_tiny.jobs[j].release_date])
-    constrT1 = (Bj[j] >= B[Instance_tiny.jobs[j].release_date])
-    constrc = (Cj[j] == C[Instance_tiny.jobs[j].tasks_sequence[-1] - 1])
-    constr.append(constrb)
-    constr.append(constrb2)
-    constr.append(constrc)
+    constraints.append(Bj[j] == B[Instance_tiny.jobs[j].task_sequence[0] - 1])
+    constraints.append(Bj[j] >= B[Instance_tiny.jobs[j].release_date])
+    constraints.append(Bj[j] >= B[Instance_tiny.jobs[j].release_date])
+    constraints.append(Cj[j] == C[Instance_tiny.jobs[j].task_sequence[-1] - 1])
+
+### Définition de la fonction objectif ###
+
+term = []
+for j in range(nb_jobs):
+    term.append(w[j]*(Cj[j]+alpha*Uj[j]+beta*Tj[j]))
+
+obj = cp.Minimize(cp.sum(term))
+
+### Définition et résolution du problème ###
+
+prob = cp.Problem(obj, constraints)
+prob.solve(solver=cp.ECOS_BB)
