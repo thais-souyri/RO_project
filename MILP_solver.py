@@ -103,7 +103,7 @@ for j in range(Instance_tiny.nb_jobs()):
     constraints.append(Bj[j] >= B[Instance_tiny.jobs[j].release_date])
     constraints.append(Cj[j] == C[Instance_tiny.jobs[j].task_sequence[-1] - 1])
 
-### Définition de la fonction objectif ###
+### Définition de la fonction objectif ## #
 
 term = []
 for j in range(nb_jobs):
