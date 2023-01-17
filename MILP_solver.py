@@ -57,10 +57,13 @@ delta = delta(Instance_tiny)
 def M_iom(instance):
     M_iom = [[[0 for m in range(0, nb_machines)] for o in range(0, nb_operators)] for i in range(0, nb_tasks)]
     for i in range(0, nb_tasks):
-        for o in range(0, nb_operators):
-            for m in range(0, nb_machines):
-                if m in instance["tasks"][i]["operators"] and o in instanceinstance["tasks"][i]["operators"]:
-                    M_iom[i][o][m] = 1
+        n = len(instance["tasks"][i]["machines"])
+        for m in range(0, nb_machines):
+            for k in range(0,n):
+                if m == instance["tasks"][i]["machines"][k]["machine"] :
+                    for o in range(0,nb_operators):
+                        if o in instance["tasks"][i]["machines"][m]["operators"]:
+                            M_iom[i][o][m] = 1
     return M_iom
 
 
